@@ -1,0 +1,67 @@
+Este código, en resumen, conecta a una base de datos MySQL, 
+obtiene números de teléfono y correos electrónicos, 
+consulta un servicio web para verificar si esos contactos desean ser contactados, 
+actualiza la base de datos con los resultados obtenidos y finalmente imprime los resultados en formato JSON.
+
+
+EXPLICACION DEL CODIGO
+1- Importación de Módulos:
+
+json: Para manejar datos en formato JSON.
+requests: Para realizar solicitudes HTTP.
+mysql.connector y Error: Para conectar y manejar errores con MySQL.
+
+2-Configuración de la Base de Datos:
+
+Se define un diccionario DB_CONFIG con la información de conexión a la base de datos, incluyendo el nombre de la base de datos, el usuario, la contraseña, la dirección del host y el puerto.
+
+
+3-Configuración del Servicio Web:
+
+WEB_SERVICE_URL: La URL del servicio web al que se realizarán las solicitudes.
+TOKEN: El token de autenticación necesario para acceder al servicio web.
+
+
+4-Función consulta_rne:
+
+Esta función realiza una solicitud POST al servicio web con un tipo (tipo) y una lista de claves (keys).
+Se configuran los encabezados de la solicitud, incluyendo el token de autenticación.
+Se construye el payload de la solicitud con el tipo y las claves.
+La función envía la solicitud y maneja la respuesta:
+Si la respuesta es exitosa (código 200), intenta parsear y retornar los datos en formato JSON.
+Si la respuesta es un error 401, imprime "No Autorizado".
+Para otros errores, intenta imprimir el error recibido en formato JSON o en texto si no es JSON.
+
+
+5-Conexión a la Base de Datos:
+
+Se intenta conectar a la base de datos usando la configuración definida en DB_CONFIG.
+Si la conexión es exitosa, se imprime un mensaje de éxito.
+Si ocurre un error, se imprime el error.
+
+
+6-Función obtener_datos:
+
+Esta función ejecuta una consulta SQL y retorna una lista con los resultados obtenidos.
+
+7-Función actualizar_base_datos:
+
+Esta función actualiza la base de datos con los resultados obtenidos del servicio web.
+Toma como parámetros el nombre de la tabla, la columna clave, el valor de la clave y los datos a actualizar.
+Construye y ejecuta una consulta SQL para actualizar la tabla correspondiente.
+
+
+8-Función procesar_prueba:
+
+Esta función realiza el procesamiento de prueba.
+Consulta todos los números de teléfono y correos electrónicos de las tablas CRC_Telefonos y CRC_Email.
+Para cada teléfono y correo, realiza una solicitud al servicio web para obtener los datos correspondientes.
+Imprime y actualiza la base de datos con los resultados obtenidos.
+Retorna un diccionario con los resultados procesados para teléfonos y correos.
+
+
+9-Ejecución del Proceso de Prueba y Cierre de la Conexión:
+
+Se llama a la función procesar_prueba y se almacenan los datos procesados en datos_procesados.
+Si se obtuvieron datos procesados, se imprimen en formato JSON.
+Finalmente, se cierran el cursor y la conexión a la base de datos.
