@@ -14,7 +14,7 @@ DB_CONFIG = {
 
 # Configuración del servicio web
 WEB_SERVICE_URL = "https://tramitescrcom.gov.co/excluidosback/consultaMasiva/validarExcluidos"
-TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJDQzk0NDc0MjU0IiwianRpIjoiNzI1ODYiLCJyb2xlcyI6IlBST1ZFRURPUl9ERV9CSUVORVNfWV9TRVJWSUNJT1MiLCJpZEVtcHJlc2EiOjEwNzczNCwiaWRNb2R1bG8iOjQzMywicGVydGVuZWNlQSI6IkRERiIsInR5cGUiOiJleHRlcm5hbCIsIm5vbWJyZU1vZHVsbyI6IlJORSBMZXkgRGVqZW4gZGUgRnJlZ2FyIiwiaWF0IjoxNzE4MjI4NzYwLCJleHAiOjE3MzM5OTY3NjB9.B2ipebS7rkR21i8OEsR9jX4Cr8TQaSl600BlO_HNrKo"
+TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJDQzk0NDc0MjU0IiwianRpIjoiNzI1ODYiLCJyb2xlcyI6IlBST1ZFRURPUl9ERV9CSUVORVNfWV9TRVJWSUNJT1MiLCJpZEVtcHJlc2EiOjEwNzczNCwiaWRNb2R1bG8iOjQzMywicGVydGVuZWNlQSI6IkRERiIsInR5cGUiOiJleHRlcm5hbCIsIm5vbWJyZU1vZHVsbyI6IlJORSBMZXkgRGVqZW4gZGUgRnJlZ2FyIiwiaWF0IjoxNzE4OTE4MTA1LCJleHAiOjE3MzQ2ODYxMDV9.VKfLhOuyq38ZV2ljEMdqV1PEvQfv6a2OayxQ10xT9SQ"
 
 # Función para hacer la consulta al servicio web
 def consulta_rne(tipo, keys):
@@ -29,7 +29,6 @@ def consulta_rne(tipo, keys):
 
     print(f"Consultando {tipo} con payload: {payload}")
 
-
     response = requests.post(WEB_SERVICE_URL, headers=headers, json=payload)
 
     print("Contenido de response:")
@@ -38,6 +37,8 @@ def consulta_rne(tipo, keys):
     if response.status_code == 200:
         try:
             print("Respuesta exitosa recibida")
+            print("Contenido de la respuesta JSON:")
+            print(response.json())  # Añadido para ver la respuesta completa
             return response.json()
         except ValueError:
             print("Error: Respuesta no es JSON")
@@ -63,10 +64,10 @@ except Error as e:
 
 cur = conn.cursor()
 
-# Consultar números de teléfono y correos electrónicos en la base de datos
-def obtener_datos(consulta_sql):
+# Consultar un número de teléfono y un correo electrónico en la base de datos
+def obtener_dato_unico(consulta_sql):
     cur.execute(consulta_sql)
-    return [row[0] for row in cur.fetchall()]
+    return cur.fetchone()[0]
 
 # Actualizar la base de datos con los resultados del servicio web
 def actualizar_base_datos(tabla, columna_llave, valor_llave, datos):
@@ -75,53 +76,59 @@ def actualizar_base_datos(tabla, columna_llave, valor_llave, datos):
     cur.execute(query, (str(datos['opcionesContacto']), datos['fechaCreacion'], valor_llave))
     conn.commit()
 
-# Proceso de prueba con múltiples registros
-def procesar_prueba():
-    consulta_telefono = "SELECT telefono FROM biq360_reports_paitrade.CRC_Telefonos"
-    consulta_email = "SELECT email FROM biq360_reports_paitrade.CRC_Email"
+# Proceso de prueba con un solo registro
+def procesar_prueba_unico():
+    consulta_telefono = "SELECT telefono FROM biq360_reports_paitrade.CRC_Telefonos LIMIT 10.000"
+    consulta_email = "SELECT email FROM biq360_reports_paitrade.CRC_Email LIMIT 10.000"
 
-    telefonos = obtener_datos(consulta_telefono)
-    correos = obtener_datos(consulta_email)
+    telefono = obtener_dato_unico(consulta_telefono)
+    correo = obtener_dato_unico(consulta_email).strip()
 
     resultados_procesados = {
         "telefonos": [],
         "correos": []
     }
 
-    if telefonos:
-        for telefono in telefonos:
-            print(f"Procesando teléfono: {telefono}")
-            resultado_tel = consulta_rne("TEL", [telefono])
-            if resultado_tel:
-                for res in resultado_tel:
-                    if res['llave'] == telefono:
-                        opciones_contacto = res.get('opcionesContacto', {})
-                        print(f"Resultado para teléfono: {telefono}")
-                        for canal, valor in opciones_contacto.items():
-                            estado = "SI" if valor else "NO"
-                            print(f"  - {canal}: {estado} desea ser contactado")
-                        actualizar_base_datos('CRC_Telefonos', 'telefono', telefono, res)
-                        resultados_procesados["telefonos"].append(res)
+    if telefono:
+        print(f"Procesando teléfono: {telefono}")
+        resultado_tel = consulta_rne("TEL", [telefono])
+        if resultado_tel:
+            for res in resultado_tel:
+                print(f"Procesando resultado: {res}")  # Añadido para ver cada resultado
+                if res['llave'] == telefono:
+                    opciones_contacto = res.get('opcionesContacto', {})
+                    print(f"Resultado para teléfono: {telefono}")
+                    for canal, valor in opciones_contacto.items():
+                        estado = "SI" if valor else "NO"
+                        print(f"  - {canal}: {estado} desea ser contactado")
+                    actualizar_base_datos('CRC_Telefonos', 'telefono', telefono, res)
+                    resultados_procesados["telefonos"].append(res)
 
-    if correos:
-        for correo in correos:
-            print(f"Procesando correo: {correo}")
-            resultado_cor = consulta_rne("COR", [correo])
-            if resultado_cor:
-                for res in resultado_cor:
-                    if res['llave'] == correo:
-                        opciones_contacto = res.get('opcionesContacto', {})
-                        print(f"Resultado para correo: {correo}")
-                        for canal, valor in opciones_contacto.items():
-                            estado = "SI" if valor else "NO"
-                            print(f"  - {canal}: {estado} desea ser contactado")
-                        actualizar_base_datos('CRC_Email', 'email', correo, res)
-                        resultados_procesados["correos"].append(res)
+        else:
+            print(f"No se encontró información para el teléfono: {telefono}. Desea ser contactado.")            
+
+    if correo:
+        print(f"Procesando correo: {correo}")
+        resultado_cor = consulta_rne("COR", [correo])
+        if resultado_cor:
+            for res in resultado_cor:
+                print(f"Procesando resultado: {res}")  # Añadido para ver cada resultado
+                if res['llave'] == correo:
+                    opciones_contacto = res.get('opcionesContacto', {})
+                    print(f"Resultado para correo: {correo}")
+                    for canal, valor in opciones_contacto.items():
+                        estado = "SI" if valor else "NO"
+                        print(f"  - {canal}: {estado} desea ser contactado")
+                    actualizar_base_datos('CRC_Email', 'email', correo, res)
+                    resultados_procesados["correos"].append(res)
+
+        else:
+            print(f"No se encontró información para el teléfono: {telefono}. Desea ser contactado.")
 
     return resultados_procesados
 
 # Ejecutar el proceso de prueba y obtener los datos en un diccionario
-datos_procesados = procesar_prueba()
+datos_procesados = procesar_prueba_unico()
 
 # Imprimir el JSON en la consola
 if datos_procesados:
