@@ -2,6 +2,7 @@ import json
 import requests
 import mysql.connector
 from mysql.connector import Error
+from datetime import datetime
 
 # Configuración de la base de datos
 DB_CONFIG = {
@@ -66,23 +67,63 @@ cur = conn.cursor()
 
 # Consultar un número de teléfono y un correo electrónico en la base de datos
 def obtener_dato_unico(consulta_sql):
-    cur.execute(consulta_sql)
-    return cur.fetchone()[0]
+    try:
+        cur.execute(consulta_sql)
+        result = cur.fetchone()
+        if result:
+            return result[0]
+        else:
+            print(f"No se encontró ningún dato para la consulta: {consulta_sql}")
+            return None
+    except Error as e:
+        print(f"Error ejecutando la consulta: {e}")
+        return None
 
 # Actualizar la base de datos con los resultados del servicio web
 def actualizar_base_datos(tabla, columna_llave, valor_llave, datos):
-    query = f"UPDATE {tabla} SET opciones_contacto = %s, fecha_creacion = %s WHERE {columna_llave} = %s"
-    print(f"Actualizando {tabla} para {valor_llave} con datos: {datos}")
-    cur.execute(query, (str(datos['opcionesContacto']), datos['fechaCreacion'], valor_llave))
-    conn.commit()
+    if datos.get('deseaSerContactado', False):  # Default is False if key does not exist
+        query = f"UPDATE {tabla} SET opciones_contacto = %s, fecha_creacion = %s WHERE {columna_llave} = %s"
+        print(f"Actualizando {tabla} para {valor_llave} con datos: {datos}")
+        try:
+            cur.execute(query, (str(datos['opcionesContacto']), datos['fechaCreacion'], valor_llave))
+            conn.commit()
+        except Error as e:
+            print(f"Error actualizando la base de datos: {e}")
+    else:
+        print(f"La persona con {columna_llave} = {valor_llave} no desea ser contactada. No se realizará ninguna actualización.")
+
+# Insertar resultado en la tabla CRC_RESULTADO_EMAIL
+def insertar_resultado_email(email, estado):
+    query = "INSERT INTO CRC_RESULTADO_EMAIL (email, fecha_consulta, estado) VALUES (%s, %s, %s)"
+    fecha_consulta = datetime.now()
+    try:
+        cur.execute(query, (email, fecha_consulta, estado))
+        conn.commit()
+        print(f"Insertado resultado en CRC_RESULTADO_EMAIL para email: {email}")
+    except Error as e:
+        print(f"Error insertando resultado en CRC_RESULTADO_EMAIL: {e}")
+
+# Insertar resultado en la tabla CRC_RESULTADO_TELEFONO
+def insertar_resultado_telefono(telefono, estado):
+    query = "INSERT INTO CRC_RESULTADO_TELEFONO (telefono, fecha_consulta, estado) VALUES (%s, %s, %s)"
+    fecha_consulta = datetime.now()
+    try:
+        cur.execute(query, (telefono, fecha_consulta, estado))
+        conn.commit()
+        print(f"Insertado resultado en CRC_RESULTADO_TELEFONO para telefono: {telefono}")
+    except Error as e:
+        print(f"Error insertando resultado en CRC_RESULTADO_TELEFONO: {e}")
 
 # Proceso de prueba con un solo registro
 def procesar_prueba_unico():
-    consulta_telefono = "SELECT telefono FROM biq360_reports_paitrade.CRC_Telefonos LIMIT 10.000"
-    consulta_email = "SELECT email FROM biq360_reports_paitrade.CRC_Email LIMIT 10.000"
+    consulta_telefono = "SELECT telefono FROM biq360_reports_paitrade.CRC_Telefonos LIMIT 1"
+    consulta_email = "SELECT email FROM biq360_reports_paitrade.CRC_Email LIMIT 1"
 
     telefono = obtener_dato_unico(consulta_telefono)
-    correo = obtener_dato_unico(consulta_email).strip()
+    correo = obtener_dato_unico(consulta_email)
+    
+    if correo:
+        correo = correo.strip()
 
     resultados_procesados = {
         "telefonos": [],
@@ -102,10 +143,12 @@ def procesar_prueba_unico():
                         estado = "SI" if valor else "NO"
                         print(f"  - {canal}: {estado} desea ser contactado")
                     actualizar_base_datos('CRC_Telefonos', 'telefono', telefono, res)
+                    estado = 1 if res.get('deseaSerContactado', False) else 0
+                    insertar_resultado_telefono(telefono, estado)
                     resultados_procesados["telefonos"].append(res)
-
         else:
-            print(f"No se encontró información para el teléfono: {telefono}. Desea ser contactado.")            
+            print(f"No se encontró información para el teléfono: {telefono}. Desea ser contactado.")
+            insertar_resultado_telefono(telefono, 0)
 
     if correo:
         print(f"Procesando correo: {correo}")
@@ -120,10 +163,12 @@ def procesar_prueba_unico():
                         estado = "SI" if valor else "NO"
                         print(f"  - {canal}: {estado} desea ser contactado")
                     actualizar_base_datos('CRC_Email', 'email', correo, res)
+                    estado = 1 if res.get('deseaSerContactado', False) else 0
+                    insertar_resultado_email(correo, estado)
                     resultados_procesados["correos"].append(res)
-
         else:
-            print(f"No se encontró información para el teléfono: {telefono}. Desea ser contactado.")
+            print(f"No se encontró información para el correo: {correo}. Desea ser contactado.")
+            insertar_resultado_email(correo, 0)
 
     return resultados_procesados
 
