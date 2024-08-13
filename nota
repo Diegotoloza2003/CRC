@@ -65,3 +65,10 @@ Retorna un diccionario con los resultados procesados para teléfonos y correos.
 Se llama a la función procesar_prueba y se almacenan los datos procesados en datos_procesados.
 Si se obtuvieron datos procesados, se imprimen en formato JSON.
 Finalmente, se cierran el cursor y la conexión a la base de datos.
+
+
+Cambios Realizados:
+obtener_estado_telefono: Nueva función para obtener el estado actual de estado_sms y estado_llamada desde CRC_RESULTADO_TELEFONO.
+obtener_estado_email: Nueva función para obtener el estado actual desde CRC_RESULTADO_EMAIL.
+actualizar_resultado_telefono: Actualiza solo si hay un cambio en el estado.
+insertar_resultado_email: Actualiza solo si hay un cambio en el estado.

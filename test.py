@@ -71,51 +71,106 @@ def obtener_dato_unico(consulta_sql):
         print(f"Error ejecutando la consulta: {e}")
         return None
 
-# Actualizar la base de datos con los resultados del servicio web
-def actualizar_base_datos(tabla, columna_llave, valor_llave, datos):
-    if datos.get('deseaSerContactado', False):  # Default is False if key does not exist
-        query = f"""
-        UPDATE {tabla}
-        SET opciones_contacto = %s, fecha_creacion = %s
-        WHERE {columna_llave} = %s
-        """
-        print(f"Actualizando {tabla} para {valor_llave} con datos: {datos}")
-        try:
-            cur.execute(query, (str(datos['opcionesContacto']), datos['fechaCreacion'], valor_llave))
-            conn.commit()
-        except Error as e:
-            print(f"Error actualizando la base de datos: {e}")
-    else:
-        print(f"La persona con {columna_llave} = {valor_llave} no desea ser contactada. No se realizará ninguna actualización.")
+# Obtener el estado actual en CRC_RESULTADO_TELEFONO
+def obtener_estado_telefono(telefono):
+    query = "SELECT estado_sms, estado_llamada FROM CRC_RESULTADO_TELEFONO WHERE telefono = %s"
+    try:
+        cur.execute(query, (telefono,))
+        result = cur.fetchone()
+        if result:
+            return result
+        else:
+            return None
+    except Error as e:
+        print(f"Error obteniendo el estado del teléfono: {e}")
+        return None
 
-# Actualizar o insertar el resultado en CRC_RESULTADO_TELEFONO
+# Obtener el estado actual en CRC_RESULTADO_EMAIL
+def obtener_estado_email(email):
+    query = "SELECT estado FROM CRC_RESULTADO_EMAIL WHERE email = %s"
+    try:
+        cur.execute(query, (email,))
+        result = cur.fetchone()
+        if result:
+            return result[0]
+        else:
+            return None
+    except Error as e:
+        print(f"Error obteniendo el estado del correo: {e}")
+        return None
+
+# Actualizar o insertar el resultado en CRC_RESULTADO_TELEFONO solo si hay un cambio en el estado
 def actualizar_resultado_telefono(telefono, estado_sms, estado_llamada):
-    query = """
-    INSERT INTO CRC_RESULTADO_TELEFONO (telefono, fecha_consulta, estado_sms, estado_llamada)
-    VALUES (%s, %s, %s, %s)
-    ON DUPLICATE KEY UPDATE
-        fecha_consulta = VALUES(fecha_consulta),
-        estado_sms = VALUES(estado_sms),
-        estado_llamada = VALUES(estado_llamada)
-    """
-    fecha_consulta = datetime.now()
-    try:
-        cur.execute(query, (telefono, fecha_consulta, estado_sms, estado_llamada))
-        conn.commit()
-        print(f"Actualizado resultado en CRC_RESULTADO_TELEFONO para telefono: {telefono}")
-    except Error as e:
-        print(f"Error actualizando resultado en CRC_RESULTADO_TELEFONO: {e}")
+    estado_actual = obtener_estado_telefono(telefono)
+    
+    if estado_actual:
+        # Comparar el estado actual con el nuevo estado
+        if (estado_actual[0] != estado_sms) or (estado_actual[1] != estado_llamada):
+            query = """
+            INSERT INTO CRC_RESULTADO_TELEFONO (telefono, fecha_consulta, estado_sms, estado_llamada)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                fecha_consulta = VALUES(fecha_consulta),
+                estado_sms = VALUES(estado_sms),
+                estado_llamada = VALUES(estado_llamada)
+            """
+            fecha_consulta = datetime.now()
+            try:
+                cur.execute(query, (telefono, fecha_consulta, estado_sms, estado_llamada))
+                conn.commit()
+                print(f"Actualizado resultado en CRC_RESULTADO_TELEFONO para teléfono: {telefono}")
+            except Error as e:
+                print(f"Error actualizando resultado en CRC_RESULTADO_TELEFONO: {e}")
+        else:
+            print(f"No se realizaron cambios en el estado del teléfono: {telefono}")
+    else:
+        query = """
+        INSERT INTO CRC_RESULTADO_TELEFONO (telefono, fecha_consulta, estado_sms, estado_llamada)
+        VALUES (%s, %s, %s, %s)
+        """
+        fecha_consulta = datetime.now()
+        try:
+            cur.execute(query, (telefono, fecha_consulta, estado_sms, estado_llamada))
+            conn.commit()
+            print(f"Insertado resultado en CRC_RESULTADO_TELEFONO para teléfono: {telefono}")
+        except Error as e:
+            print(f"Error insertando resultado en CRC_RESULTADO_TELEFONO: {e}")
 
-# Insertar resultado en CRC_RESULTADO_EMAIL
+# Insertar o actualizar resultado en CRC_RESULTADO_EMAIL solo si hay un cambio en el estado
 def insertar_resultado_email(email, estado):
-    query = "INSERT INTO CRC_RESULTADO_EMAIL (email, fecha_consulta, estado) VALUES (%s, %s, %s)"
-    fecha_consulta = datetime.now()
-    try:
-        cur.execute(query, (email, fecha_consulta, estado))
-        conn.commit()
-        print(f"Insertado resultado en CRC_RESULTADO_EMAIL para email: {email}")
-    except Error as e:
-        print(f"Error insertando resultado en CRC_RESULTADO_EMAIL: {e}")
+    estado_actual = obtener_estado_email(email)
+    
+    if estado_actual is not None:
+        # Comparar el estado actual con el nuevo estado
+        if estado_actual != estado:
+            query = """
+            INSERT INTO CRC_RESULTADO_EMAIL (email, fecha_consulta, estado)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                fecha_consulta = VALUES(fecha_consulta),
+                estado = VALUES(estado)
+            """
+            fecha_consulta = datetime.now()
+            try:
+                cur.execute(query, (email, fecha_consulta, estado))
+                conn.commit()
+                print(f"Actualizado resultado en CRC_RESULTADO_EMAIL para email: {email}")
+            except Error as e:
+                print(f"Error actualizando resultado en CRC_RESULTADO_EMAIL: {e}")
+        else:
+            print(f"No se realizaron cambios en el estado del correo: {email}")
+    else:
+        query = """
+        INSERT INTO CRC_RESULTADO_EMAIL (email, fecha_consulta, estado)
+        VALUES (%s, %s, %s)
+        """
+        fecha_consulta = datetime.now()
+        try:
+            cur.execute(query, (email, fecha_consulta, estado))
+            conn.commit()
+            print(f"Insertado resultado en CRC_RESULTADO_EMAIL para email: {email}")
+        except Error as e:
+            print(f"Error insertando resultado en CRC_RESULTADO_EMAIL: {e}")
 
 # Proceso de prueba con un solo registro
 def procesar_prueba_unico():
@@ -157,9 +212,7 @@ def procesar_prueba_unico():
                         estado = "SI" if valor else "NO"
                         print(f"  - {canal}: {estado} desea ser contactado")
 
-                    actualizar_base_datos('CRC_Telefonos', 'telefono', telefono, res)
-                    
-                    # Usa la función de actualización para manejar duplicados
+                    # Actualizar o insertar en CRC_RESULTADO_TELEFONO
                     actualizar_resultado_telefono(telefono, estado_sms, estado_llamada)
                     resultados_procesados["telefonos"].append(res)
         else:
@@ -181,6 +234,7 @@ def procesar_prueba_unico():
                     if not res.get('deseaSerContactado', True):  # False si NO desea ser contactado
                         estado = 1
                         
+                    # Insertar o actualizar en CRC_RESULTADO_EMAIL
                     insertar_resultado_email(correo, estado)
                     resultados_procesados["correos"].append(res)
         else:
