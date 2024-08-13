@@ -104,11 +104,11 @@ def insertar_resultado_email(email, estado):
         print(f"Error insertando resultado en CRC_RESULTADO_EMAIL: {e}")
 
 # Insertar resultado en la tabla CRC_RESULTADO_TELEFONO
-def insertar_resultado_telefono(telefono, estado):
-    query = "INSERT INTO CRC_RESULTADO_TELEFONO (telefono, fecha_consulta, estado) VALUES (%s, %s, %s)"
+def insertar_resultado_telefono(telefono, estado_sms, estado_llamada):
+    query = "INSERT INTO CRC_RESULTADO_TELEFONO (telefono, fecha_consulta, estado_sms, estado_llamada) VALUES (%s, %s, %s, %s)"
     fecha_consulta = datetime.now()
     try:
-        cur.execute(query, (telefono, fecha_consulta, estado))
+        cur.execute(query, (telefono, fecha_consulta, estado_sms, estado_llamada))
         conn.commit()
         print(f"Insertado resultado en CRC_RESULTADO_TELEFONO para telefono: {telefono}")
     except Error as e:
@@ -139,16 +139,23 @@ def procesar_prueba_unico():
                 if res['llave'] == telefono:
                     opciones_contacto = res.get('opcionesContacto', {})
                     print(f"Resultado para teléfono: {telefono}")
+
+                    # Calcular estado_sms y estado_llamada
+                    estado_sms = 1 if opciones_contacto.get('sms', False) else 0
+                    estado_llamada = 1 if opciones_contacto.get('llamada', False) else 0
+
                     for canal, valor in opciones_contacto.items():
                         estado = "SI" if valor else "NO"
                         print(f"  - {canal}: {estado} desea ser contactado")
+
                     actualizar_base_datos('CRC_Telefonos', 'telefono', telefono, res)
-                    estado = 1 if res.get('deseaSerContactado', False) else 0
-                    insertar_resultado_telefono(telefono, estado)
+                    
+                    # Insertar en CRC_RESULTADO_TELEFONO con ambos estados
+                    insertar_resultado_telefono(telefono, estado_sms, estado_llamada)
                     resultados_procesados["telefonos"].append(res)
         else:
             print(f"No se encontró información para el teléfono: {telefono}. Desea ser contactado.")
-            insertar_resultado_telefono(telefono, 0)
+            insertar_resultado_telefono(telefono, 0, 0)
 
     if correo:
         print(f"Procesando correo: {correo}")
@@ -171,6 +178,7 @@ def procesar_prueba_unico():
             insertar_resultado_email(correo, 0)
 
     return resultados_procesados
+
 
 # Ejecutar el proceso de prueba y obtener los datos en un diccionario
 datos_procesados = procesar_prueba_unico()
