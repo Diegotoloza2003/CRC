@@ -28,10 +28,18 @@ def consulta_rne(tipo, keys):
         "keys": keys
     }
 
+    print(f"Consultando {tipo} con payload: {payload}")
+
     response = requests.post(WEB_SERVICE_URL, headers=headers, json=payload)
+
+    print("Contenido de response:")
+    print(response.status_code)
     
     if response.status_code == 200:
         try:
+            print("Respuesta exitosa recibida")
+            print("Contenido de la respuesta JSON:")
+            print(response.json())  # Añadido para ver la respuesta completa
             return response.json()
         except ValueError:
             print("Error: Respuesta no es JSON")
@@ -139,6 +147,7 @@ def procesar_prueba_unico():
         
         if resultado_tel:
             for res in resultado_tel:
+                print(f"Procesando resultado: {res}")  # Añadido para ver cada resultado
                 if res['llave'] == telefono:
                     opciones_contacto = res.get('opcionesContacto', {})
                     print(f"Resultado para teléfono: {telefono}")
@@ -173,6 +182,7 @@ def procesar_prueba_unico():
         
         if resultado_cor:
             for res in resultado_cor:
+                print(f"Procesando resultado: {res}")  # Añadido para ver cada resultado
                 if res['llave'] == correo:
                     opciones_contacto = res.get('opcionesContacto', {})
                     print(f"Resultado para correo: {correo}")
