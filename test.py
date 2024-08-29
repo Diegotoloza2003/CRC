@@ -14,6 +14,7 @@ DB_CONFIG = {
 }
 
 # Configuración del servicio web
+# token JUNIO 19-2024
 WEB_SERVICE_URL = "https://tramitescrcom.gov.co/excluidosback/consultaMasiva/validarExcluidos"
 TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJDQzk0NDc0MjU0IiwianRpIjoiNzI1ODYiLCJyb2xlcyI6IlBST1ZFRURPUl9ERV9CSUVORVNfWV9TRVJWSUNJT1MiLCJpZEVtcHJlc2EiOjEwNzczNCwiaWRNb2R1bG8iOjQzMywicGVydGVuZWNlQSI6IkRERiIsInR5cGUiOiJleHRlcm5hbCIsIm5vbWJyZU1vZHVsbyI6IlJORSBMZXkgRGVqZW4gZGUgRnJlZ2FyIiwiaWF0IjoxNzE4OTE4MTA1LCJleHAiOjE3MzQ2ODYxMDV9.VKfLhOuyq38ZV2ljEMdqV1PEvQfv6a2OayxQ10xT9SQ"
 
@@ -172,69 +173,73 @@ def insertar_resultado_email(email, estado):
         except Error as e:
             print(f"Error insertando resultado en CRC_RESULTADO_EMAIL: {e}")
 
-# Proceso de prueba con un solo registro
-def procesar_prueba_unico():
-    consulta_telefono = "SELECT telefono FROM biq360_reports_paitrade.CRC_Telefonos LIMIT 1"
-    telefono = obtener_dato_unico(consulta_telefono)
+def obtener_dato_unico(consulta_sql):
+    try:
+        cur.execute(consulta_sql)
+        result = cur.fetchall()  # Usar fetchall() para asegurarte de que todos los resultados se procesen
+        if result:
+            return [r[0] for r in result]  # Retornar una lista de resultados
+        else:
+            print(f"No se encontró ningún dato para la consulta: {consulta_sql}")
+            return []
+    except Error as e:
+        print(f"Error ejecutando la consulta: {e}")
+        return []
 
-    consulta_email = "SELECT email FROM biq360_reports_paitrade.CRC_Email LIMIT 1"
-    correo = obtener_dato_unico(consulta_email)
-    
-    if correo:
-        correo = correo.strip()
+# Obtener múltiples registros para la prueba
+telefonos = obtener_dato_unico("SELECT telefono FROM biq360_reports_paitrade.CRC_Telefonos LIMIT 100")
+correos = obtener_dato_unico("SELECT email FROM biq360_reports_paitrade.CRC_Email LIMIT 100")
 
+# Asegúrate de cerrar el cursor después de cada consulta
+cur.close()
+
+# Reabre el cursor para las siguientes operaciones
+cur = conn.cursor()
+
+def procesar_prueba_multiple(telefonos, correos):
     resultados_procesados = {
         "telefonos": [],
         "correos": []
     }
 
-    if telefono:
+    for telefono in telefonos:
         print(f"Procesando teléfono: {telefono}")
         resultado_tel = consulta_rne("TEL", [telefono])
-        
+
         if resultado_tel:
             for res in resultado_tel:
                 if res['llave'] == telefono:
                     opciones_contacto = res.get('opcionesContacto', {})
                     print(f"Resultado para teléfono: {telefono}")
 
-                    # Calcular estado_sms y estado_llamada
-                    estado_sms = 0  # Inicialmente suponemos que quiere ser contactado (estado=0)
-                    estado_llamada = 0  # Mismo para llamadas
+                    estado_sms = 0
+                    estado_llamada = 0
 
-                    # Ahora verificamos si no desea ser contactado y cambiamos a 1 si es necesario
-                    if not opciones_contacto.get('sms', True):  # False si NO desea ser contactado
+                    if not opciones_contacto.get('sms', True):
                         estado_sms = 1
-                    if not opciones_contacto.get('llamada', True):  # False si NO desea ser contactado
+                    if not opciones_contacto.get('llamada', True):
                         estado_llamada = 1
 
-                    for canal, valor in opciones_contacto.items():
-                        estado = "SI" if valor else "NO"
-                        print(f"  - {canal}: {estado} desea ser contactado")
-
-                    # Actualizar o insertar en CRC_RESULTADO_TELEFONO
                     actualizar_resultado_telefono(telefono, estado_sms, estado_llamada)
                     resultados_procesados["telefonos"].append(res)
         else:
             print(f"No se encontró información para el teléfono: {telefono}. Desea ser contactado.")
-            # Si no se encontró información, se debe guardar el estado como 0 para ambos
             actualizar_resultado_telefono(telefono, 0, 0)
 
-    if correo:
+    for correo in correos:
         print(f"Procesando correo: {correo}")
         resultado_cor = consulta_rne("COR", [correo])
-        
+
         if resultado_cor:
             for res in resultado_cor:
                 if res['llave'] == correo:
                     opciones_contacto = res.get('opcionesContacto', {})
                     print(f"Resultado para correo: {correo}")
-                    
-                    estado = 0  # Inicialmente suponemos que quiere ser contactado (estado=0)
-                    if not res.get('deseaSerContactado', True):  # False si NO desea ser contactado
+
+                    estado = 0
+                    if not res.get('deseaSerContactado', True):
                         estado = 1
-                        
-                    # Insertar o actualizar en CRC_RESULTADO_EMAIL
+
                     insertar_resultado_email(correo, estado)
                     resultados_procesados["correos"].append(res)
         else:
@@ -243,8 +248,8 @@ def procesar_prueba_unico():
 
     return resultados_procesados
 
-# Ejecutar el proceso de prueba y obtener los datos en un diccionario
-datos_procesados = procesar_prueba_unico()
+# Ejecutar el proceso de prueba con múltiples registros
+datos_procesados = procesar_prueba_multiple(telefonos, correos)
 
 # Imprimir el JSON en la consola
 if datos_procesados:
