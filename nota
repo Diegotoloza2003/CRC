@@ -72,3 +72,14 @@ obtener_estado_telefono: Nueva función para obtener el estado actual de estado_
 obtener_estado_email: Nueva función para obtener el estado actual desde CRC_RESULTADO_EMAIL.
 actualizar_resultado_telefono: Actualiza solo si hay un cambio en el estado.
 insertar_resultado_email: Actualiza solo si hay un cambio en el estado.
+
+
+Cambios realizados
+División en bloques: Se dividen los registros de telefonos y correos en bloques de 50 utilizando un bucle for con un intervalo de 50.
+
+Procesamiento por bloques: Cada bloque se procesa por separado dentro de las funciones procesar_bloque_telefonos y procesar_bloque_correos.
+
+
+Variables total_telefonos y total_correos: Se agregaron para almacenar la cantidad total de registros de teléfonos y correos. Esto asegura que se manejen correctamente los límites al imprimir el rango de cada bloque.
+
+Impresión del rango procesado: Durante el procesamiento de cada bloque, ahora se imprime claramente el rango de registros que se está procesando, lo que facilita el seguimiento y asegura que no se repitan los registros.
