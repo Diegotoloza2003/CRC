@@ -202,49 +202,63 @@ def procesar_prueba_multiple(telefonos, correos):
         "correos": []
     }
 
-    for telefono in telefonos:
-        print(f"Procesando teléfono: {telefono}")
-        resultado_tel = consulta_rne("TEL", [telefono])
+    def procesar_bloque_telefonos(bloque_telefonos):
+        for telefono in bloque_telefonos:
+            print(f"Procesando teléfono: {telefono}")
+            resultado_tel = consulta_rne("TEL", [telefono])
 
-        if resultado_tel:
-            for res in resultado_tel:
-                if res['llave'] == telefono:
-                    opciones_contacto = res.get('opcionesContacto', {})
-                    print(f"Resultado para teléfono: {telefono}")
+            if resultado_tel:
+                for res in resultado_tel:
+                    if res['llave'] == telefono:
+                        opciones_contacto = res.get('opcionesContacto', {})
+                        print(f"Resultado para teléfono: {telefono}")
 
-                    estado_sms = 0
-                    estado_llamada = 0
+                        estado_sms = 0
+                        estado_llamada = 0
 
-                    if not opciones_contacto.get('sms', True):
-                        estado_sms = 1
-                    if not opciones_contacto.get('llamada', True):
-                        estado_llamada = 1
+                        if not opciones_contacto.get('sms', True):
+                            estado_sms = 1
+                        if not opciones_contacto.get('llamada', True):
+                            estado_llamada = 1
 
-                    actualizar_resultado_telefono(telefono, estado_sms, estado_llamada)
-                    resultados_procesados["telefonos"].append(res)
-        else:
-            print(f"No se encontró información para el teléfono: {telefono}. Desea ser contactado.")
-            actualizar_resultado_telefono(telefono, 0, 0)
+                        actualizar_resultado_telefono(telefono, estado_sms, estado_llamada)
+                        resultados_procesados["telefonos"].append(res)
+            else:
+                print(f"No se encontró información para el teléfono: {telefono}. Desea ser contactado.")
+                actualizar_resultado_telefono(telefono, 0, 0)
 
-    for correo in correos:
-        print(f"Procesando correo: {correo}")
-        resultado_cor = consulta_rne("COR", [correo])
+    def procesar_bloque_correos(bloque_correos):
+        for correo in bloque_correos:
+            print(f"Procesando correo: {correo}")
+            resultado_cor = consulta_rne("COR", [correo])
 
-        if resultado_cor:
-            for res in resultado_cor:
-                if res['llave'] == correo:
-                    opciones_contacto = res.get('opcionesContacto', {})
-                    print(f"Resultado para correo: {correo}")
+            if resultado_cor:
+                for res in resultado_cor:
+                    if res['llave'] == correo:
+                        opciones_contacto = res.get('opcionesContacto', {})
+                        print(f"Resultado para correo: {correo}")
 
-                    estado = 0
-                    if not res.get('deseaSerContactado', True):
-                        estado = 1
+                        estado = 0
+                        if not res.get('deseaSerContactado', True):
+                            estado = 1
 
-                    insertar_resultado_email(correo, estado)
-                    resultados_procesados["correos"].append(res)
-        else:
-            print(f"No se encontró información para el correo: {correo}. Desea ser contactado.")
-            insertar_resultado_email(correo, 0)
+                        insertar_resultado_email(correo, estado)
+                        resultados_procesados["correos"].append(res)
+            else:
+                print(f"No se encontró información para el correo: {correo}. Desea ser contactado.")
+                insertar_resultado_email(correo, 0)
+
+    # Procesar en bloques de 50
+    total_telefonos = len(telefonos)
+    total_correos = len(correos)
+
+    for i in range(0, total_telefonos, 50):
+        print(f"Procesando bloque de teléfonos: {i + 1} a {min(i + 50, total_telefonos)}")
+        procesar_bloque_telefonos(telefonos[i:i + 50])
+
+    for i in range(0, total_correos, 50):
+        print(f"Procesando bloque de correos: {i + 1} a {min(i + 50, total_correos)}")
+        procesar_bloque_correos(correos[i:i + 50])
 
     return resultados_procesados
 
@@ -254,6 +268,7 @@ datos_procesados = procesar_prueba_multiple(telefonos, correos)
 # Imprimir el JSON en la consola
 if datos_procesados:
     print(json.dumps(datos_procesados, indent=4))
+
 
 # Cerrar la conexión a la base de datos
 cur.close()
