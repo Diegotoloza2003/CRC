@@ -27,7 +27,7 @@ telefonos = definiciones.obtener_dato_unico("SELECT telefono FROM biq360_reports
 correos = definiciones.obtener_dato_unico("SELECT email FROM biq360_reports_paitrade.CRC_Email LIMIT 1", cur)
 
 if telefonos is None or correos is None:
-    print("No se obtuvieron datos de teléfonos o correos.")
+    print("No se obtuvieron datos de telefonos o correos.")
     # Manejar el caso según sea necesario
     exit()
 
