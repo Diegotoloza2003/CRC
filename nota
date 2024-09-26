@@ -83,3 +83,4 @@ Procesamiento por bloques: Cada bloque se procesa por separado dentro de las fun
 Variables total_telefonos y total_correos: Se agregaron para almacenar la cantidad total de registros de teléfonos y correos. Esto asegura que se manejen correctamente los límites al imprimir el rango de cada bloque.
 
 Impresión del rango procesado: Durante el procesamiento de cada bloque, ahora se imprime claramente el rango de registros que se está procesando, lo que facilita el seguimiento y asegura que no se repitan los registros.
+
